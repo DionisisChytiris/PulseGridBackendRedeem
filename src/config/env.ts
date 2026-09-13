@@ -4,19 +4,39 @@ import dotenv from "dotenv";
 // Loads .env locally. On Vercel, env vars come from the project settings.
 dotenv.config();
 
+/** Vercel often sets empty-string env vars; treat those as "unset". */
+const emptyToUndefined = (value: unknown): unknown =>
+  value === "" || value === null || value === undefined ? undefined : value;
+
 const envSchema = z.object({
-  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
-  PORT: z.coerce.number().int().positive().default(3000),
+  NODE_ENV: z.preprocess(
+    emptyToUndefined,
+    z.enum(["development", "production", "test"]).default("development"),
+  ),
+  // Local only. On Vercel, leave PORT unset (or delete it) — serverless ignores it.
+  PORT: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().positive().default(3000),
+  ),
   MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
-  MONGODB_DB_NAME: z.string().min(1).default("pulsegrid"),
+  MONGODB_DB_NAME: z.preprocess(
+    emptyToUndefined,
+    z.string().min(1).default("pulsegrid"),
+  ),
   ADMIN_API_KEY: z.string().min(16, "ADMIN_API_KEY must be at least 16 characters"),
   CODE_HASH_SECRET: z.string().min(32, "CODE_HASH_SECRET must be at least 32 characters"),
-  REDEEM_BASE_URL: z.string().url().default("https://pulsegrid.app/redeem"),
+  REDEEM_BASE_URL: z.preprocess(
+    emptyToUndefined,
+    z.string().url().default("https://pulsegrid.app/redeem"),
+  ),
   /**
    * Comma-separated list of allowed origins.
    * Example: http://localhost:5173,https://your-admin.vercel.app
    */
-  CORS_ORIGIN: z.string().min(1).default("http://localhost:5173"),
+  CORS_ORIGIN: z.preprocess(
+    emptyToUndefined,
+    z.string().min(1).default("http://localhost:5173"),
+  ),
 });
 
 export type Env = z.infer<typeof envSchema>;

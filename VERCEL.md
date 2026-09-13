@@ -24,6 +24,9 @@ Project → **Settings → Environment Variables**. Add:
 | `CORS_ORIGIN` | Admin origin(s), comma-separated |
 | `NODE_ENV` | `production` |
 
+Do **not** set `PORT` on Vercel (or set it blank). Serverless does not use it.
+If you already added an empty `PORT`, delete that variable and redeploy.
+
 Example `CORS_ORIGIN`:
 
 ```text
