@@ -2,19 +2,37 @@ import { MongoClient, Db, Collection } from "mongodb";
 import { env } from "../config/env";
 import type { RedeemCodeDocument } from "../types/redeemCode";
 
+type MongoGlobal = typeof globalThis & {
+  _pulsegridMongoClientPromise?: Promise<MongoClient>;
+};
+
 let client: MongoClient | null = null;
 let db: Db | null = null;
+let indexesReady = false;
 
+/**
+ * Connect with a cached promise on globalThis so Vercel warm invocations reuse
+ * the same MongoClient instead of opening a new connection every request.
+ */
 export async function connectMongo(): Promise<Db> {
   if (db) {
     return db;
   }
 
-  client = new MongoClient(env.MONGODB_URI);
-  await client.connect();
+  const g = globalThis as MongoGlobal;
+
+  if (!g._pulsegridMongoClientPromise) {
+    const mongoClient = new MongoClient(env.MONGODB_URI);
+    g._pulsegridMongoClientPromise = mongoClient.connect();
+  }
+
+  client = await g._pulsegridMongoClientPromise;
   db = client.db(env.MONGODB_DB_NAME);
 
-  await ensureIndexes(db);
+  if (!indexesReady) {
+    await ensureIndexes(db);
+    indexesReady = true;
+  }
 
   console.log(`Connected to MongoDB database: ${env.MONGODB_DB_NAME}`);
   return db;
@@ -51,5 +69,7 @@ export async function closeMongo(): Promise<void> {
     await client.close();
     client = null;
     db = null;
+    indexesReady = false;
+    delete (globalThis as MongoGlobal)._pulsegridMongoClientPromise;
   }
 }

@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
-import { env } from "./config/env";
+import { getCorsOrigins } from "./config/env";
+import { connectMongo } from "./db/mongodb";
 import { healthRouter } from "./routes/health";
 import { adminRedeemCodesRouter } from "./routes/adminRedeemCodes";
 import { redeemRouter } from "./routes/redeem";
@@ -11,10 +12,17 @@ export function createApp() {
 
   app.use(
     cors({
-      origin: env.CORS_ORIGIN,
+      origin: getCorsOrigins(),
     }),
   );
   app.use(express.json());
+
+  // Ensure Mongo is connected (no-op when already cached — important for Vercel).
+  app.use((_req, _res, next) => {
+    void connectMongo()
+      .then(() => next())
+      .catch((err: unknown) => next(err));
+  });
 
   // Simple request logging — never log Authorization headers or body codes.
   app.use((req, _res, next) => {
